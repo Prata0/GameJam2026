@@ -46,6 +46,9 @@
 *.VC.opendb
 .vsconfig
 
+# These mcp are user specific
+.mcp.json
+
 # Precompiled Assets
 SourceArt/**/*.png
 SourceArt/**/*.tga

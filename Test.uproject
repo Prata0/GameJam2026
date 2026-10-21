@@ -25,6 +25,10 @@
 		{
 			"Name": "AllToolsets",
 			"Enabled": true
+		},
+		{
+			"Name": "StdCore",
+			"Enabled": true
 		}
 	]
 }

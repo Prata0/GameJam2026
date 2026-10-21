@@ -11,6 +11,7 @@ Everything lives in this folder: C++ in `Source/StdCore`, assets in `Content` (m
 - [Daily use](#daily-use)
 - [How it works](#how-it-works)
 - [Console commands](#console-commands)
+- [Known limitations and possible improvements](LIMITATIONS.md)
 
 ---
 

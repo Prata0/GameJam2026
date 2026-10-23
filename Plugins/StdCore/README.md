@@ -8,6 +8,7 @@ Everything lives in this folder: C++ in `Source/StdCore`, assets in `Content` (m
 
 - [Install in a new project](#install-in-a-new-project)
 - [Assets to create](#assets-to-create) (specification and setup script)
+- [Restyle the menus](#restyle-the-menus) (UI theme)
 - [Daily use](#daily-use)
 - [How it works](#how-it-works)
 - [Console commands](#console-commands)
@@ -46,7 +47,7 @@ All plugin settings are in *Project Settings > Game > Std Core* (`UStdProjectSet
 
 The C++ code expects these assets. They already ship in `Plugins/StdCore/Content`. This table is their specification, and the reference for rebuilding them. Until an asset exists the plugin compiles, starts and degrades: missing assets are logged once and skipped. Create them **in this order**, so each one can reference the previous ones. All paths are inside the plugin content.
 
-Audio, input and maps (#1–#12, #18–#19) are built by a script, see [Rebuild the assets with the script](#rebuild-the-assets-with-the-script). Python cannot edit a widget tree, so the Widget Blueprints (#13–#17) are made in the editor, by hand or through the editor's MCP UMG toolset. The current ones are functional skeletons: plain vertical boxes with the required widgets and their labels, and no styling yet.
+Audio, input, maps and the UI theme (#1–#12, #18–#20) are built by a script, see [Rebuild the assets with the script](#rebuild-the-assets-with-the-script). Python cannot edit a widget tree, so the Widget Blueprints (#13–#17) are made in the editor, by hand or through the editor's MCP UMG toolset. The Widget Blueprints hold layout and texts only: colors, fonts and shapes come from the theme (see [Restyle the menus](#restyle-the-menus)).
 
 ### 1. Audio (`/StdCore/Audio/`)
 
@@ -116,7 +117,29 @@ Each Widget Blueprint must have the C++ class as parent and contain the widgets 
 | 16 | `WBP_PauseMenu` | `StdPauseMenuWidget` | `Button_Resume`, `Button_Settings`, `Button_MainMenu`, `Button_Quit`: Button. |
 | 17 | `WBP_MainMenu` | `StdMainMenuWidget` | `Button_Play`, `Button_Settings`, `Button_Credits`, `Button_Quit`: Button. |
 
-Texts (button labels, window mode and quality names) are ordinary properties of the Blueprints; the C++ defaults are English.
+Optional widgets (`BindWidgetOptional`), used when present:
+
+| Asset | Widget | Purpose |
+|---|---|---|
+| `WBP_Settings` | `Text_MasterVolumeValue`, `Text_MusicVolumeValue`, `Text_SfxVolumeValue`: Text Block | The volume as a percentage, next to its slider. |
+| `WBP_MainMenu` | `Text_Version`: Text Block | Filled with *Project Settings > Description > Project Version*. |
+
+Names the theme recognizes (see [Restyle the menus](#restyle-the-menus)): `Border_Background` (full-screen dim layer), `Border_Panel` (rounded panel), `Text_Title`, `Text_Heading*`, `Text_Version`, and `Button_Tab*` for tab buttons.
+
+The current layouts, at a reference resolution of 1920×1080:
+- **`WBP_MainMenu`**: a column on the left with the title and four buttons, and the version at the bottom right.
+- **`WBP_PauseMenu`**, **`WBP_Credits`**: a centered panel.
+- **`WBP_Settings`**: a centered panel with the title and tabs on top. *Audio / Video* has rows of label, control and value. *Controls* has a scrolling list of key rows, then the message and *Reset to defaults*. *Back* is at the bottom right.
+
+Texts (button labels, window mode and quality names) are ordinary properties of the Blueprints; the C++ defaults are English. The volume sliders have *Requires Controller Lock* off: Left and Right change the value as soon as the slider has the focus. The key list's Scroll Box has *Scroll When Focus Changes* on, so it follows keyboard and gamepad navigation.
+
+In the testbed project, `Scripts/stdcore_build_widgets.py` rebuilds these five layouts through the editor's MCP server.
+
+### UI theme (`/StdCore/UI/`)
+
+| # | Asset | Type | Settings |
+|---|---|---|---|
+| 20 | `DA_UITheme` | Data Asset of class `StdUITheme` | None needed: the C++ defaults are the look (dark panels, light text, blue accent). Edit it to restyle the menus. |
 
 ### 4. Maps (`/StdCore/Maps/`)
 
@@ -131,7 +154,7 @@ The defaults of *Project Settings > Game > Std Core* already point to all of the
 
 ### Rebuild the assets with the script
 
-`Content/Python/stdcore_setup.py` creates or updates assets #1–#12 and #18–#19 from the tables above. It is only needed to rebuild them or to check them: a project that copies the plugin folder already has the assets.
+`Content/Python/stdcore_setup.py` creates or updates assets #1–#12 and #18–#20 from the tables above. It is only needed to rebuild them or to check them: a project that copies the plugin folder already has the assets.
 
 - **Requires** the *Python Editor Script Plugin* and *Editor Scripting Utilities* to be enabled in the project. The Unreal MCP plugin enables both.
 - **From the editor**: switch the Output Log to *Python* and run `py "<project>/Plugins/StdCore/Content/Python/stdcore_setup.py"`.
@@ -139,7 +162,7 @@ The defaults of *Project Settings > Game > Std Core* already point to all of the
   ```
   UnrealEditor-Cmd.exe <project>.uproject -run=pythonscript -script="<project>/Plugins/StdCore/Content/Python/stdcore_setup.py"
   ```
-- **Stages**: add `audio`, `input` or `maps` after the script path (inside the quotes) to run only those.
+- **Stages**: add `audio`, `input`, `maps` or `ui` after the script path (inside the quotes) to run only those. The `ui` stage only creates `DA_UITheme` when it is missing and never resets its values.
 - **Idempotent**: each asset is created when missing, compared with the specification and saved only when something differs. The log ends with `[StdCore setup] Done: N created, N updated, N unchanged, N errors`; a second run reports 0 created and 0 updated.
 - **It restores the specification.** Hand edits to these plugin assets are reverted on the next run (for example an extra `IMC_Default` row or a moved light). Put game-specific changes in the game's own assets instead (see *Daily use*).
 - **Map actors** are matched by label (`StdSun`, `StdSkyLight`, `StdSkyAtmosphere`, `StdFloor`, `StdPlayerStart`). Other actors in the plugin maps are left alone.
@@ -214,9 +237,41 @@ Blueprint: with `AStdPlayerController` (or a subclass) as the player controller,
 Format Text: "Press {Key} to interact"   Key = Get Key Text For Input Tag(Get Owning Player, InputTag.Interact)
 ```
 
-### Replace the widgets with restyled versions
+### Restyle the menus
 
-Create the game's own Widget Blueprints (e.g. duplicate `WBP_MainMenu` into `/Game/UI/`), keep the parent class and the widget names, restyle freely, then point *Std Core > UI* to the new classes. The plugin's Blueprints stay untouched. The Controls tab's category header can be restyled by overriding **Create Category Header** in the settings Blueprint.
+All menus take their look from one asset, `DA_UITheme` (*Project Settings > Std Core > Theme*). Edit it and every menu changes, in the game and in the Widget Blueprint designer.
+
+| Group | Fields |
+|---|---|
+| Colors | *Accent Color* (focus, hover, pressed, category headers), *Panel Color*, *Backdrop Color*, *Button Color*, *Text Color*, *Muted Text Color* (version, unselected tabs, slider bars), *Text On Accent Color* |
+| Shape | *Corner Radius*, *Button Padding* |
+| Fonts | *Title Font*, *Heading Font*, *Body Font*, *Button Font* (the engine's Roboto by default; any imported font works) |
+| Sounds | *Hover Sound*, *Press Sound* (optional; give them the `SC_UI` Sound Class so they play while paused) |
+
+**How widgets pick their style.** The theme styles widgets by type and name:
+
+| Widget | Style |
+|---|---|
+| Buttons | Button style. |
+| `Button_Tab*` | Tab style; the selected tab is filled. |
+| Labels inside buttons | Button font; the color follows the button's state. |
+| Sliders, key selectors | Their own style. |
+| `Text_Title`, `Text_Heading*` | Title font, heading font. |
+| Other texts | Body font (`Text_Version` in the muted color). |
+| `Border_Background`, `Border_Panel` | Backdrop color, panel color. |
+
+**Where it applies.**
+- It runs in *Pre Construct*, before the Blueprint's own *Pre Construct*, so a Blueprint can still override single widgets there.
+- To keep one screen's designer style, untick **Apply Theme** in its Class Defaults.
+- To use the theme in the game's own widgets, call **Apply Std UI Theme** in their *Pre Construct*.
+- With the *Theme* setting empty, the Widget Blueprints use their designer values. The plugin's ones fall back to dark layers and dark button labels.
+
+**Focus is always visible.** The focused button, slider or key selector shows its hovered look, and hovering with the mouse moves the focus. This works with or without a theme; untick **Highlight Focus** on a screen to turn it off.
+
+**Bigger changes.** For layout changes or a completely different look, create the game's own Widget Blueprints, for example by duplicating `WBP_MainMenu` into `/Game/UI/`.
+- Keep the parent class and the widget names.
+- Point *Std Core > UI* to the new classes; the plugin's Blueprints stay untouched.
+- To restyle the Controls tab's category header, override **Create Category Header** in the settings Blueprint.
 
 ---
 
@@ -226,7 +281,13 @@ Create the game's own Widget Blueprints (e.g. duplicate `WBP_MainMenu` into `/Ga
 - **Transitions**: `UStdFlowSubsystem` draws a Slate overlay on the game viewport client, which survives map loads. Fade out > `OpenLevel` > new world > short delay > fade in, all on real time. Input is blocked by a Slate input pre-processor during the whole transition; travel and pause requests are refused. A map that does not arrive within *Travel Timeout Seconds* (or a travel failure) removes the fade, unblocks input and logs an error.
 - **Input**: `UStdInputSubsystem` (local player) adds the configured mapping contexts and registers them with the Enhanced Input user settings when the player controller changes, so saved keys apply before the first input. Remapping covers keyboard and mouse entries only; gamepad keys, axes and *Reserved Keys* (Escape) are refused; a key already used by another entry swaps the two. Remapped keys are saved by Enhanced Input in `Saved/SaveGames/EnhancedInputUserSettings.sav`.
 - **Pause**: `AStdPlayerController` pauses on `InputTag.Pause`. While the pause menu is open the input mode is UI only, so an input pre-processor handles the pause keys: Escape and gamepad B go back one screen (Settings saves) or resume from the pause menu itself; Start resumes from anywhere. Without a pause menu widget the game still pauses and Escape resumes.
-- **Menus**: `UStdScreenWidget` handles focus (first button on open; taken back if it falls on the viewport), screen stacking (Settings and Credits open over their menu and return to it) and Back.
+- **Menus**: `UStdScreenWidget` handles:
+  - **focus**: the first button on open, taken back if it falls on the viewport;
+  - **screen stacking**: Settings and Credits open over their menu and return to it;
+  - **Back**;
+  - **the theme**, applied in `NativePreConstruct`;
+  - **the focus highlight**: each tick, the focused button, slider or key selector gets its hovered style and gets its own style back when the focus leaves.
+- **Theme**: `UStdUITheme` builds button, tab, slider and text styles from its colors with rounded-box brushes (no textures). `StdUITheme::ApplyToWidget` assigns them by widget type and name.
 
 ---
 

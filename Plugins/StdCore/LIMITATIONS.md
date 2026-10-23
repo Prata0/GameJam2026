@@ -20,6 +20,13 @@ Things deliberately left out of Phase 1 or worth improving later. None of them i
 - **Plain category headers.** The Controls tab's category header is a default Text Block; restyle it by overriding `Create Category Header` in the settings Blueprint.
 - **Focus recovery is limited.** A screen takes the focus back only when it falls on the game viewport (a click on empty space).
 - **Volumes are saved on Back.** Quitting with Alt+F4 while the Settings screen is open loses the volume changes made there (key changes are saved immediately).
+- **The Widget Blueprints are unstyled skeletons.** They work, but:
+  - a focused button looks like the others, so keyboard focus is invisible;
+  - the key selectors show cyan text on grey buttons;
+  - titles use the default font size.
+
+  Layout and style are the next step; the widget names stay the same.
+- **Escape stops PIE.** In Play In Editor, Escape is the editor's *Stop* shortcut, so the session ends instead of pausing. Test the pause in Standalone (or `-game`), or rebind *Editor Preferences > Keyboard Shortcuts > Play World > Stop* (for example to Shift+Escape). Packaged games are not affected.
 
 ## Audio
 
@@ -28,9 +35,37 @@ Things deliberately left out of Phase 1 or worth improving later. None of them i
 ## Testing and packaging
 
 - **No automated tests.**
-- **Verified so far:** clean compile; the game runs without assets (missing assets logged once, startup fade, travel, pause/resume, refused requests, volumes saved).
-- **Not verified yet (needs the Phase 2 assets):** menus, key remapping, music, Sound Mix, gamepad navigation.
+- **Verified so far:**
+  - **Build and startup**
+    - Clean compile.
+    - Without assets: missing assets logged once, startup fade, travel, pause/resume, refused requests, volumes saved.
+    - With assets: no missing-asset warnings.
+  - **Setup script** runs twice with 0 changes on the second run.
+  - **Menus and pause (keyboard, `-game`)**
+    - Main menu and Credits.
+    - Play travels to `L_TestGameplay` with the fade.
+    - Escape pauses.
+    - Settings from pause; Escape back saves; Escape again resumes.
+    - Main menu from pause; Quit with the fade.
+  - **Controls tab**
+    - 6 entries in 2 categories.
+    - Swap with a message.
+    - Escape cancels a capture without closing the screen.
+    - Reset.
+    - Keys kept after a restart, in a stable order.
+  - **PIE**: first map and travel.
+  - **Console commands**: `Std.Music` and `Std.PlaySound` run without errors.
+- **Not verified yet:**
+  - Audio by ear: music volume, SFX silent while paused, UI sounds while paused.
+  - Mouse use of the menus.
+  - Gamepad navigation.
 - **Packaging:** `Config/Game.ini` adds `/StdCore` to *Directories to Always Cook*; whether the cooker picks it up from the plugin is to be confirmed with the first Shipping build (Phase 4).
+
+## Assets
+
+- **The setup script restores the specification.** Running `stdcore_setup.py` again reverts hand edits to the assets it manages. Game-specific changes belong in the game's own assets.
+- **The setup script does not build the Widget Blueprints.** Python cannot edit a widget tree. They are made in the editor (or through the MCP UMG toolset); if they are ever lost, rebuild them from the README table.
+- **Saving needs the game closed.** While a `-game` process of the same project is running, the editor can fail to save an asset that the game has loaded.
 
 ## Build environment (testbed machine)
 

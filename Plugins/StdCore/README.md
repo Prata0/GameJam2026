@@ -7,7 +7,7 @@ Everything lives in this folder: C++ in `Source/StdCore`, assets in `Content` (m
 ## Contents
 
 - [Install in a new project](#install-in-a-new-project)
-- [Assets to create](#assets-to-create) (Phase 2 specification)
+- [Assets to create](#assets-to-create) (specification and setup script)
 - [Daily use](#daily-use)
 - [How it works](#how-it-works)
 - [Console commands](#console-commands)
@@ -36,7 +36,7 @@ Everything lives in this folder: C++ in `Source/StdCore`, assets in `Content` (m
      [/Script/UnrealEd.ProjectPackagingSettings]
      +DirectoriesToAlwaysCook=(Path="/StdCore")
      ```
-7. **Check it works.** Play (Standalone or PIE) from `L_MainMenu`: the menu fades in, Play goes to `L_TestGameplay` with a fade, Escape pauses. Filter the Output Log on `LogStdCore`: every missing or misconfigured asset is reported there once, with the setting name and the expected path.
+7. **Check it works.** Play (Standalone or PIE) from `L_MainMenu`: the menu fades in, Play goes to `L_TestGameplay` with a fade, Escape pauses. In PIE, Escape is the editor's *Stop* shortcut: test the pause in Standalone, or rebind *Stop* (see [LIMITATIONS.md](LIMITATIONS.md)). Filter the Output Log on `LogStdCore`: every missing or misconfigured asset is reported there once, with the setting name and the expected path.
 
 All plugin settings are in *Project Settings > Game > Std Core* (`UStdProjectSettings`, saved in `DefaultGame.ini`). Defaults point to the assets below; change them to use the game's own assets without touching the plugin.
 
@@ -44,7 +44,9 @@ All plugin settings are in *Project Settings > Game > Std Core* (`UStdProjectSet
 
 ## Assets to create
 
-The C++ code expects these assets. Until they exist the plugin compiles, starts and degrades: missing assets are logged once and skipped. Create them **in this order**, so each one can reference the previous ones. All paths are inside the plugin content (`Plugins/StdCore/Content`).
+The C++ code expects these assets. They already ship in `Plugins/StdCore/Content`. This table is their specification, and the reference for rebuilding them. Until an asset exists the plugin compiles, starts and degrades: missing assets are logged once and skipped. Create them **in this order**, so each one can reference the previous ones. All paths are inside the plugin content.
+
+Audio, input and maps (#1–#12, #18–#19) are built by a script, see [Rebuild the assets with the script](#rebuild-the-assets-with-the-script). Python cannot edit a widget tree, so the Widget Blueprints (#13–#17) are made in the editor, by hand or through the editor's MCP UMG toolset. The current ones are functional skeletons: plain vertical boxes with the required widgets and their labels, and no styling yet.
 
 ### 1. Audio (`/StdCore/Audio/`)
 
@@ -126,6 +128,21 @@ Texts (button labels, window mode and quality names) are ordinary properties of 
 ### 5. Project settings references
 
 The defaults of *Project Settings > Game > Std Core* already point to all of the above. Nothing to set unless an asset gets a different name or path. In the testbed project, *Game Default Map* = `L_MainMenu`.
+
+### Rebuild the assets with the script
+
+`Content/Python/stdcore_setup.py` creates or updates assets #1–#12 and #18–#19 from the tables above. It is only needed to rebuild them or to check them: a project that copies the plugin folder already has the assets.
+
+- **Requires** the *Python Editor Script Plugin* and *Editor Scripting Utilities* to be enabled in the project. The Unreal MCP plugin enables both.
+- **From the editor**: switch the Output Log to *Python* and run `py "<project>/Plugins/StdCore/Content/Python/stdcore_setup.py"`.
+- **Headless**, with every editor of the project closed:
+  ```
+  UnrealEditor-Cmd.exe <project>.uproject -run=pythonscript -script="<project>/Plugins/StdCore/Content/Python/stdcore_setup.py"
+  ```
+- **Stages**: add `audio`, `input` or `maps` after the script path (inside the quotes) to run only those.
+- **Idempotent**: each asset is created when missing, compared with the specification and saved only when something differs. The log ends with `[StdCore setup] Done: N created, N updated, N unchanged, N errors`; a second run reports 0 created and 0 updated.
+- **It restores the specification.** Hand edits to these plugin assets are reverted on the next run (for example an extra `IMC_Default` row or a moved light). Put game-specific changes in the game's own assets instead (see *Daily use*).
+- **Map actors** are matched by label (`StdSun`, `StdSkyLight`, `StdSkyAtmosphere`, `StdFloor`, `StdPlayerStart`). Other actors in the plugin maps are left alone.
 
 ---
 
@@ -223,4 +240,6 @@ Development builds only:
 | `Std.MainMenu` | Travel to the main menu map. |
 | `Std.TogglePause` | Pause or resume through `AStdPlayerController`. |
 | `Std.Volume master\|music\|sfx 0..1` | Set and save a volume. |
+| `Std.Music /Path/To/Sound` / `Std.Music stop` | Play a track through the music subsystem, or stop it. |
+| `Std.PlaySound /Path/To/Sound [ui]` | Play a 2D sound with `SC_SFX` (stops while paused) or, with `ui`, `SC_UI`. |
 | `Std.DumpInput` | Log the remappable keys and the key of each plugin tag. |

@@ -32,8 +32,17 @@ Things deliberately left out, or worth improving later. None of them is implemen
 
 ## Testing and packaging
 
-- **No automated tests.**
+- **Automated tests cover assets, formulas, styles and the main PIE flows** (README, *Tests*). They do not cover the widgets' visual layout, audio output, the gamepad or packaged builds.
 - **Verified so far:**
+  - **Tests**: the 7 `StdCore` tests pass, headless with `-nullrhi`, in the testbed and in a fresh *Blank* C++ project.
+  - **Portability**: the plugin copied into a fresh *Blank* C++ project following the README works: build, tests, `-game` menu, Play, pause, Settings.
+  - **Packaged Development build**: the 20 plugin packages are in the container; no `LogStdCore` warning; menu, Play, pause, Settings, remap, back to the menu and Quit work.
+  - **Packaged Shipping build** (684 MB; 2.3 minutes to build and cook on the testbed):
+    - The 20 plugin packages are in the container.
+    - Menu, Play, pause, Settings from the pause menu and remap work.
+    - The remapped key is still there after a restart, in `%LOCALAPPDATA%\Test\Saved`, and Reset works.
+    - Quit works.
+    - Checked by screenshots only, since Shipping has no log.
   - **Build and startup**
     - Clean compile.
     - Without assets: missing assets logged once, startup fade, travel, pause/resume, refused requests, volumes saved.
@@ -52,7 +61,7 @@ Things deliberately left out, or worth improving later. None of them is implemen
     - Reset.
     - Keys kept after a restart, in a stable order.
   - **PIE**: first map and travel.
-  - **Console commands**: `Std.Music` and `Std.PlaySound` run without errors.
+  - **Console commands** (editor `-game`): `Std.Music` and `Std.PlaySound` run without errors.
   - **Theme and layout (`-game`)**
     - Every screen at 1280×720; main menu and Settings also at 1920×1080.
     - The theme is visible in the designer.
@@ -67,7 +76,10 @@ Things deliberately left out, or worth improving later. None of them is implemen
   - Audio by ear: music volume, SFX silent while paused, UI sounds while paused.
   - Gamepad navigation.
   - Very wide or very tall windows (21:9, portrait).
-- **Packaging:** `Config/Game.ini` adds `/StdCore` to *Directories to Always Cook*; whether the cooker picks it up from the plugin is to be confirmed with the first Shipping build (Phase 4).
+
+  [CHECKLIST.md](CHECKLIST.md) lists these as manual checks.
+- **A plugin `Config/Game.ini` does not reach the cooker.** The first packaged build showed it: *Directories to Always Cook* set from the plugin was ignored, and `L_TestGameplay` was missing (only assets reached through references were cooked). The plugin now adds its packages through `UE::Cook::FDelegates::ModifyCook` instead. If a future engine version changes that hook, the fallback is the project-side entry *Project Settings > Packaging > Additional Asset Directories to Cook* = `/StdCore`.
+- **Shipping builds have no log.** Problems in Shipping only show on screen; check a Development package first.
 
 ## Assets
 
@@ -78,4 +90,6 @@ Things deliberately left out, or worth improving later. None of them is implemen
 ## Build environment (testbed machine)
 
 - **Live Coding blocks every editor target of the same engine.** UBT checks Live Coding per executable, and every project uses the same `UnrealEditor.exe`: close all editors of this engine before building from the command line.
-- **Random PCH memory errors (C3859 / C1076).** IncrediBuild without a license runs too many compiles in parallel; running the same build command again completes it.
+- **Random PCH memory errors (C3859 / C1076).** IncrediBuild without a license runs too many compiles in parallel. Running the same build command again completes it, as does adding `-MaxParallelActions=6` to `Build.bat`.
+- **Shader compiling hangs through XGE.** On a new project the first start compiles shaders. On this machine the engine hands them to IncrediBuild, whose `XGEControlWorker.exe` is missing, and the start hangs with no error. Add `-noxgeshadercompile` to the editor or game command line, and `-AdditionalCookerOptions=-noxgeshadercompile` to `BuildCookRun`.
+- **The testbed project is called `Test`.** That is also the name of a build configuration, so UBT cannot take the game target by name. Use `Build.bat -TargetType=Game ...`, then `BuildCookRun` without `-build`.

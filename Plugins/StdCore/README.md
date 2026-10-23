@@ -12,6 +12,9 @@ Everything lives in this folder: C++ in `Source/StdCore`, assets in `Content` (m
 - [Daily use](#daily-use)
 - [How it works](#how-it-works)
 - [Console commands](#console-commands)
+- [Tests](#tests)
+- [Package the game](#package-the-game)
+- [Checklist for a new project](CHECKLIST.md)
 - [Known limitations and possible improvements](LIMITATIONS.md)
 
 ---
@@ -24,7 +27,7 @@ Everything lives in this folder: C++ in `Source/StdCore`, assets in `Content` (m
    ```json
    { "Name": "StdCore", "Enabled": true }
    ```
-4. **Regenerate project files and compile** (or open the `.uproject` and accept the rebuild).
+4. **Regenerate project files and compile** (or open the `.uproject` and accept the rebuild). The plugin has two modules: `StdCore` (runtime) and `StdCoreTests` (editor only, never packaged). The first start of a new project compiles shaders and can take a few minutes.
 5. **Project Settings**, the only steps the plugin cannot do by itself:
    - *Maps & Modes > Game Default Map* = `/StdCore/Maps/L_MainMenu`. This writes `GameDefaultMap` in `DefaultEngine.ini`.
    - *Maps & Modes > Default GameMode*: optional. The plugin maps set their own Game Mode in their World Settings. For the game's own maps either set `StdGameMode` (or a subclass) here or in each map's World Settings.
@@ -32,12 +35,14 @@ Everything lives in this folder: C++ in `Source/StdCore`, assets in `Content` (m
 6. **Nothing else is needed in the `.ini` files:**
    - Volumes are saved by the plugin's own `StdUserSettings` object in `GameUserSettings.ini`; `GameUserSettingsClassName` is **not** changed.
    - Key remapping uses the Enhanced Input user settings, enabled by default in 5.8 (*Engine > Enhanced Input > Enable User Settings*). If a project turns them off, remapping stops and the log says so.
-   - Packaging: `Plugins/StdCore/Config/Game.ini` adds `/StdCore` to *Directories to Always Cook*, merged into the project's config automatically. If a Shipping build ever misses plugin assets, add this to the project's `Config/DefaultGame.ini`:
-     ```ini
-     [/Script/UnrealEd.ProjectPackagingSettings]
-     +DirectoriesToAlwaysCook=(Path="/StdCore")
-     ```
-7. **Check it works.** Play (Standalone or PIE) from `L_MainMenu`: the menu fades in, Play goes to `L_TestGameplay` with a fade, Escape pauses. In PIE, Escape is the editor's *Stop* shortcut: test the pause in Standalone, or rebind *Stop* (see [LIMITATIONS.md](LIMITATIONS.md)). Filter the Output Log on `LogStdCore`: every missing or misconfigured asset is reported there once, with the setting name and the expected path.
+   - **Packaging.** No *Directories to Always Cook* entry is needed. During a cook, the plugin adds every package under `/StdCore` itself, plus every asset named in *Project Settings > Std Core* (for example the game's own gameplay map). It uses the engine's `ModifyCook` hook, in the editor only.
+7. **Check it works.**
+   - Run the [tests](#tests). `StdCore.Assets.SettingsDefaults` fails on any missing or misplaced asset.
+   - Play (Standalone or PIE) from `L_MainMenu`: the menu fades in, Play goes to `L_TestGameplay` with a fade, and Escape pauses.
+   - In PIE, Escape is the editor's *Stop* shortcut: test the pause in Standalone, or rebind *Stop* (see [LIMITATIONS.md](LIMITATIONS.md)).
+   - Filter the Output Log on `LogStdCore`: every missing or misconfigured asset is reported there once, with the setting name and the expected path.
+
+   This procedure was checked on a fresh *Blank* C++ project of UE 5.8, with no other change. The manual checks the tests do not cover are in [CHECKLIST.md](CHECKLIST.md).
 
 All plugin settings are in *Project Settings > Game > Std Core* (`UStdProjectSettings`, saved in `DefaultGame.ini`). Defaults point to the assets below; change them to use the game's own assets without touching the plugin.
 
@@ -304,3 +309,43 @@ Development builds only:
 | `Std.Music /Path/To/Sound` / `Std.Music stop` | Play a track through the music subsystem, or stop it. |
 | `Std.PlaySound /Path/To/Sound [ui]` | Play a 2D sound with `SC_SFX` (stops while paused) or, with `ui`, `SC_UI`. |
 | `Std.DumpInput` | Log the remappable keys and the key of each plugin tag. |
+
+---
+
+## Tests
+
+Automation tests live in the editor-only module `StdCoreTests`, under the `StdCore.` prefix:
+
+| Test | Checks |
+|---|---|
+| `StdCore.Assets.SettingsDefaults` | Every asset and widget class named in *Project Settings > Std Core* loads, with the right class. |
+| `StdCore.Assets.Audio` | Sound Class hierarchy, *Is UI Sound* flags, the four `SCM_Volumes` adjusters and their *Apply to Children*. |
+| `StdCore.Assets.Input` | Value types, *Trigger when Paused* only on `IA_Pause`, the five tags of `DA_InputConfig_Core`, the six remappable entries of `IMC_Default` in order. |
+| `StdCore.Settings.Volumes` | The volume formula (`StdAudio::ComputeClassVolumes`) and volume clamping. |
+| `StdCore.Theme.Styles` | The styles built by `UStdUITheme`. |
+| `StdCore.Flow.Play` | In PIE: main menu shown, a missing map refused, Play travels to the gameplay map, pause and resume, back to the main menu. |
+| `StdCore.Input.Remap` | In PIE: reserved, gamepad and axis keys refused, a swap, an unchanged and a rejected remap, the keys after a reset. It leaves the default keys saved. |
+
+**Run them:**
+- **In the editor:** *Tools > Session Frontend > Automation*, filter `StdCore`, tick and *Start Tests*.
+- **From the command line**, with the project's editor closed (about 15 seconds after the editor has started):
+  ```
+  UnrealEditor-Cmd.exe <project>.uproject -ExecCmds="Automation RunTests StdCore;Quit" -unattended -nullrhi -nosplash -log
+  ```
+  Each test logs `Test Completed. Result={Success}` (or `{Fail}` with the reason) under `LogAutomationController`.
+
+---
+
+## Package the game
+
+*Platforms > Windows > Package Project*, or from the command line:
+```
+RunUAT.bat BuildCookRun -project=<project>.uproject -noP4 -platform=Win64 -clientconfig=Shipping -build -cook -stage -pak -archive -archivedirectory=<output folder> -unattended
+```
+- The result is in `<output folder>/Windows`: run `<Project>.exe`.
+- **What gets cooked.** The plugin adds its own assets and the assets named in its settings to the cook; the cook log says `Std Core: N packages added to the cook.`
+- **Checking the package.** `UnrealPak.exe <output>/Windows/<Project>/Content/Paks/<Project>-Windows.utoc -List` lists the packaged files: every `Plugins/StdCore/Content/...` asset, both maps included, must be there.
+- **A project named `Test`.** Unreal also has a build configuration called *Test*, so the game target cannot be given by name: build it with `Build.bat -TargetType=Game Win64 Shipping -Project=<path>`, then run `BuildCookRun` without `-build`. Other project names work with the single command above.
+- **Development builds** keep the log (`<output>/Windows/<Project>/Saved/Logs`), the console and the `Std.*` commands.
+- **Shipping builds** have neither log nor console.
+- A packaged game saves its settings and keys in `%LOCALAPPDATA%\<Project>\Saved`.

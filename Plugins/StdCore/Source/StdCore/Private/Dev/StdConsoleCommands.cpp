@@ -4,6 +4,8 @@
 
 #if !UE_BUILD_SHIPPING
 
+#include "Audio/StdMusicSubsystem.h"
+#include "Components/AudioComponent.h"
 #include "Engine/GameInstance.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
@@ -11,8 +13,12 @@
 #include "Framework/StdPlayerController.h"
 #include "HAL/IConsoleManager.h"
 #include "Input/StdInputSubsystem.h"
+#include "Kismet/GameplayStatics.h"
 #include "Misc/PackageName.h"
+#include "Settings/StdProjectSettings.h"
 #include "Settings/StdSettingsSubsystem.h"
+#include "Sound/SoundBase.h"
+#include "Sound/SoundClass.h"
 #include "StdGameplayTags.h"
 #include "StdLog.h"
 
@@ -21,6 +27,16 @@ namespace StdConsoleCommands
 	UGameInstance* GetGameInstance(UWorld* World)
 	{
 		return World ? World->GetGameInstance() : nullptr;
+	}
+
+	/** Accepts "/Game/Path/Asset" as well as "/Game/Path/Asset.Asset". */
+	FSoftObjectPath MakeObjectPath(FString Path)
+	{
+		if (!Path.Contains(TEXT(".")))
+		{
+			Path = Path + TEXT(".") + FPackageName::GetShortName(Path);
+		}
+		return FSoftObjectPath(Path);
 	}
 
 	FAutoConsoleCommandWithWorldAndArgs Travel(
@@ -36,12 +52,7 @@ namespace StdConsoleCommands
 				return;
 			}
 
-			FString Path = Args[0];
-			if (!Path.Contains(TEXT(".")))
-			{
-				Path = Path + TEXT(".") + FPackageName::GetShortName(Path);
-			}
-			Flow->TravelToLevel(TSoftObjectPtr<UWorld>(FSoftObjectPath(Path)));
+			Flow->TravelToLevel(TSoftObjectPtr<UWorld>(MakeObjectPath(Args[0])));
 		}));
 
 	FAutoConsoleCommandWithWorld MainMenu(
@@ -98,6 +109,69 @@ namespace StdConsoleCommands
 			Settings->SetVolume(Channel, FCString::Atof(*Args[1]));
 			Settings->SaveSettings();
 			UE_LOG(LogStdCore, Log, TEXT("Volume %s = %.2f (saved)."), *Args[0], Settings->GetVolume(Channel));
+		}));
+
+	FAutoConsoleCommandWithWorldAndArgs Music(
+		TEXT("Std.Music"),
+		TEXT("Std.Music </Path/To/Sound>|stop: play a track through the Std Core music subsystem, or stop it."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			UGameInstance* GameInstance = GetGameInstance(World);
+			UStdMusicSubsystem* MusicSubsystem = GameInstance ? GameInstance->GetSubsystem<UStdMusicSubsystem>() : nullptr;
+			if (!MusicSubsystem || Args.IsEmpty())
+			{
+				UE_LOG(LogStdCore, Warning, TEXT("Usage: Std.Music /Path/To/Sound | stop (in a running game)."));
+				return;
+			}
+
+			if (Args[0].Equals(TEXT("stop"), ESearchCase::IgnoreCase))
+			{
+				MusicSubsystem->StopMusic();
+				return;
+			}
+
+			USoundBase* Sound = Cast<USoundBase>(MakeObjectPath(Args[0]).TryLoad());
+			if (!Sound)
+			{
+				UE_LOG(LogStdCore, Warning, TEXT("Std.Music: '%s' is not a sound."), *Args[0]);
+				return;
+			}
+			MusicSubsystem->PlayMusic(Sound);
+			UE_LOG(LogStdCore, Log, TEXT("Music: %s."), *GetNameSafe(MusicSubsystem->GetCurrentMusic()));
+		}));
+
+	FAutoConsoleCommandWithWorldAndArgs PlaySound(
+		TEXT("Std.PlaySound"),
+		TEXT("Std.PlaySound </Path/To/Sound> [ui]: play a 2D sound with the SFX Sound Class (or the UI one)."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+		{
+			if (!World || Args.IsEmpty())
+			{
+				UE_LOG(LogStdCore, Warning, TEXT("Usage: Std.PlaySound /Path/To/Sound [ui] (in a running game)."));
+				return;
+			}
+
+			USoundBase* Sound = Cast<USoundBase>(MakeObjectPath(Args[0]).TryLoad());
+			if (!Sound)
+			{
+				UE_LOG(LogStdCore, Warning, TEXT("Std.PlaySound: '%s' is not a sound."), *Args[0]);
+				return;
+			}
+
+			const UStdProjectSettings* Settings = UStdProjectSettings::Get();
+			const bool bUi = Args.Num() > 1 && Args[1].Equals(TEXT("ui"), ESearchCase::IgnoreCase);
+			USoundClass* SoundClass = bUi
+				? StdSettings::LoadAsset(Settings->UiSoundClass, TEXT("UiSoundClass"), StdCoreDefaults::UiSoundClass)
+				: StdSettings::LoadAsset(Settings->SfxSoundClass, TEXT("SfxSoundClass"), StdCoreDefaults::SfxSoundClass);
+
+			// A component instead of PlaySound2D: only a component can override the Sound Class of any asset.
+			if (UAudioComponent* Component = UGameplayStatics::CreateSound2D(World, Sound))
+			{
+				Component->SoundClassOverride = SoundClass;
+				Component->bIsUISound = bUi;
+				Component->Play();
+				UE_LOG(LogStdCore, Log, TEXT("Playing %s as %s."), *Sound->GetName(), bUi ? TEXT("UI") : TEXT("SFX"));
+			}
 		}));
 
 	FAutoConsoleCommandWithWorld DumpInput(

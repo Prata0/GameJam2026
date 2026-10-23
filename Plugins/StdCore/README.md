@@ -15,6 +15,7 @@ Everything lives in this folder: C++ in `Source/StdCore`, assets in `Content` (m
 - [Tests](#tests)
 - [Package the game](#package-the-game)
 - [Checklist for a new project](CHECKLIST.md)
+- [Usage and extension guide](GUIDE.md) (recipes for using, extending and modifying the plugin)
 - [Known limitations and possible improvements](LIMITATIONS.md)
 
 ---

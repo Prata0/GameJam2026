@@ -149,7 +149,33 @@ TArray<FStdKeyBindingRow> UStdInputSubsystem::GetRemappableKeys() const
 		}
 	}
 
-	// Group by category, keeping the order in which categories first appear (the order of the mapping contexts).
+	// The profile stores its rows in a map, whose order changes once saved keys are loaded: follow the order of the
+	// configured mapping contexts instead, then group by category in the order categories first appear.
+	TArray<FName> MappingOrder;
+	const UStdProjectSettings* Settings = UStdProjectSettings::Get();
+	for (int32 Index = 0; Index < Settings->MappingContexts.Num(); ++Index)
+	{
+		const UInputMappingContext* MappingContext = StdSettings::LoadAsset(Settings->MappingContexts[Index].MappingContext,
+			FString::Printf(TEXT("MappingContexts[%d]"), Index), StdCoreDefaults::MappingContext);
+		if (!MappingContext)
+		{
+			continue;
+		}
+		for (const FEnhancedActionKeyMapping& Mapping : MappingContext->GetMappings())
+		{
+			if (Mapping.IsPlayerMappable())
+			{
+				MappingOrder.AddUnique(Mapping.GetMappingName());
+			}
+		}
+	}
+	Rows.StableSort([&MappingOrder](const FStdKeyBindingRow& A, const FStdKeyBindingRow& B)
+	{
+		const int32 IndexA = MappingOrder.IndexOfByKey(A.MappingName);
+		const int32 IndexB = MappingOrder.IndexOfByKey(B.MappingName);
+		return (IndexA == INDEX_NONE ? MAX_int32 : IndexA) < (IndexB == INDEX_NONE ? MAX_int32 : IndexB);
+	});
+
 	TArray<FString> CategoryOrder;
 	for (const FStdKeyBindingRow& Row : Rows)
 	{

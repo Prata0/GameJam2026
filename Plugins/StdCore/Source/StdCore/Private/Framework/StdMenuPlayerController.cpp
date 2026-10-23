@@ -32,8 +32,8 @@ void AStdMenuPlayerController::BeginPlay()
 	if (MainMenu)
 	{
 		MainMenu->ShowAsRoot(MainMenuZOrder);
+		// The focus goes to the menu's default button below: the user widget itself is not focusable.
 		FInputModeUIOnly InputMode;
-		InputMode.SetWidgetToFocus(MainMenu->TakeWidget());
 		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 		SetInputMode(InputMode);
 		MainMenu->FocusDefaultWidget();

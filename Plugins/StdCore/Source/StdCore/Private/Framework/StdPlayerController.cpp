@@ -122,8 +122,8 @@ bool AStdPlayerController::PauseGame()
 	if (PauseMenu)
 	{
 		PauseMenu->ShowAsRoot(PauseMenuZOrder);
+		// The focus goes to the menu's default button below: the user widget itself is not focusable.
 		FInputModeUIOnly InputMode;
-		InputMode.SetWidgetToFocus(PauseMenu->TakeWidget());
 		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 		SetInputMode(InputMode);
 		PauseMenu->FocusDefaultWidget();

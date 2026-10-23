@@ -15,6 +15,24 @@ enum class EStdVolumeChannel : uint8
 	Sfx
 };
 
+/** The volume the Sound Mix gives each plugin Sound Class. */
+struct FStdClassVolumes
+{
+	float Master = 1.f;
+	float Music = 1.f;
+	float Sfx = 1.f;
+	float Ui = 1.f;
+};
+
+namespace StdAudio
+{
+	/**
+	 * One explicit formula per branch, so the master is applied exactly once whatever the hierarchy does: the root
+	 * stays at 1 and each branch carries Master x its own volume (the UI branch follows the master only).
+	 */
+	STDCORE_API FStdClassVolumes ComputeClassVolumes(float Master, float Music, float Sfx);
+}
+
 /**
  * Volumes, window mode and graphics quality.
  *

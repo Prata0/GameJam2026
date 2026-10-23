@@ -77,6 +77,16 @@ void UStdSettingsSubsystem::ApplyVolumes()
 	ApplyVolumesInternal(/*bPushMix*/ true);
 }
 
+FStdClassVolumes StdAudio::ComputeClassVolumes(float Master, float Music, float Sfx)
+{
+	FStdClassVolumes Volumes;
+	Volumes.Master = 1.f;
+	Volumes.Music = Music * Master;
+	Volumes.Sfx = Sfx * Master;
+	Volumes.Ui = Master;
+	return Volumes;
+}
+
 void UStdSettingsSubsystem::ApplyVolumesInternal(bool bPushMix)
 {
 	UWorld* World = GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr;
@@ -93,11 +103,11 @@ void UStdSettingsSubsystem::ApplyVolumesInternal(bool bPushMix)
 	}
 
 	const UStdUserSettings* UserSettings = UStdUserSettings::Get();
-	const float Master = UserSettings->GetMasterVolume();
+	const FStdClassVolumes Volumes = StdAudio::ComputeClassVolumes(UserSettings->GetMasterVolume(),
+		UserSettings->GetMusicVolume(), UserSettings->GetSfxVolume());
 
-	// One explicit formula per branch, so the master is applied exactly once whatever the hierarchy does:
-	// the root stays at 1 and each branch carries Master x its own volume. The branches apply to their children,
-	// so a Sound Class the game adds under SC_Music, SC_SFX or SC_UI follows its branch without new adjusters.
+	// The branches apply to their children, so a Sound Class the game adds under SC_Music, SC_SFX or SC_UI follows
+	// its branch without new adjusters.
 	auto ApplyClass = [World, Mix](USoundClass* SoundClass, float Volume, bool bApplyToChildren)
 	{
 		if (SoundClass)
@@ -107,13 +117,13 @@ void UStdSettingsSubsystem::ApplyVolumesInternal(bool bPushMix)
 	};
 
 	ApplyClass(StdSettings::LoadAsset(Settings->MasterSoundClass, TEXT("MasterSoundClass"), StdCoreDefaults::MasterSoundClass),
-		1.f, /*bApplyToChildren*/ false);
+		Volumes.Master, /*bApplyToChildren*/ false);
 	ApplyClass(StdSettings::LoadAsset(Settings->MusicSoundClass, TEXT("MusicSoundClass"), StdCoreDefaults::MusicSoundClass),
-		UserSettings->GetMusicVolume() * Master, /*bApplyToChildren*/ true);
+		Volumes.Music, /*bApplyToChildren*/ true);
 	ApplyClass(StdSettings::LoadAsset(Settings->SfxSoundClass, TEXT("SfxSoundClass"), StdCoreDefaults::SfxSoundClass),
-		UserSettings->GetSfxVolume() * Master, /*bApplyToChildren*/ true);
+		Volumes.Sfx, /*bApplyToChildren*/ true);
 	ApplyClass(StdSettings::LoadAsset(Settings->UiSoundClass, TEXT("UiSoundClass"), StdCoreDefaults::UiSoundClass),
-		Master, /*bApplyToChildren*/ true);
+		Volumes.Ui, /*bApplyToChildren*/ true);
 
 	if (bPushMix)
 	{
@@ -203,7 +213,8 @@ void UStdSettingsSubsystem::LoadStartupVideoSettings()
 	// Set only: saving now would write the live CVars, which still hold the mixed state.
 	if (GameSettings->GetOverallScalabilityLevel() < 0)
 	{
-		UE_LOG(LogStdCore, Warning, TEXT("Saved quality matches no single level; using the default level %d."), DefaultQualityLevel);
+		// Normal on a first run: nothing is saved yet and the engine defaults mix levels.
+		UE_LOG(LogStdCore, Log, TEXT("Quality matches no single preset (first run or mixed settings); using level %d."), DefaultQualityLevel);
 		GameSettings->SetOverallScalabilityLevel(DefaultQualityLevel);
 	}
 

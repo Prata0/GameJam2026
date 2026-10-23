@@ -22,7 +22,8 @@ public class StdCore : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"EngineSettings"
+			"EngineSettings",
+			"AssetRegistry"
 		});
 	}
 }

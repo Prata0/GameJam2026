@@ -5,6 +5,7 @@
 #include "StdMainMenuWidget.generated.h"
 
 class UButton;
+class UTextBlock;
 
 /** Main menu: Play, Settings, Credits, Quit. Shown by AStdMenuPlayerController. */
 UCLASS(Abstract)
@@ -31,6 +32,10 @@ protected:
 	/** Fades out and quits. */
 	UPROPERTY(BlueprintReadOnly, Category = "Std Core|UI", meta = (BindWidget))
 	TObjectPtr<UButton> Button_Quit;
+
+	/** Optional: filled with Project Settings > Description > Project Version. */
+	UPROPERTY(BlueprintReadOnly, Category = "Std Core|UI", meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> Text_Version;
 
 private:
 	UFUNCTION()

@@ -65,6 +65,18 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Std Core|UI", meta = (BindWidget))
 	TObjectPtr<USlider> Slider_SfxVolume;
 
+	/** Optional: the master volume as a percentage. */
+	UPROPERTY(BlueprintReadOnly, Category = "Std Core|UI", meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> Text_MasterVolumeValue;
+
+	/** Optional: the music volume as a percentage. */
+	UPROPERTY(BlueprintReadOnly, Category = "Std Core|UI", meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> Text_MusicVolumeValue;
+
+	/** Optional: the effects volume as a percentage. */
+	UPROPERTY(BlueprintReadOnly, Category = "Std Core|UI", meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> Text_SfxVolumeValue;
+
 	/** Each press moves to the next window mode: fullscreen, borderless window, window. */
 	UPROPERTY(BlueprintReadOnly, Category = "Std Core|UI", meta = (BindWidget))
 	TObjectPtr<UButton> Button_WindowMode;
@@ -128,7 +140,9 @@ private:
 	UStdSettingsSubsystem* GetSettingsSubsystem() const;
 	UStdInputSubsystem* GetInputSubsystem() const;
 
+	void SelectTab(int32 Index);
 	void RefreshAudioVideo();
+	void RefreshVolumeTexts();
 	void RebuildKeyBindings();
 	void RefreshKeyBindingRows();
 	void SetKeyBindingMessage(const FText& Message);

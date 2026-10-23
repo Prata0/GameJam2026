@@ -1,8 +1,10 @@
 #include "UI/StdMainMenuWidget.h"
 
 #include "Components/Button.h"
+#include "Components/TextBlock.h"
 #include "Engine/GameInstance.h"
 #include "Flow/StdFlowSubsystem.h"
+#include "GeneralProjectSettings.h"
 #include "Settings/StdProjectSettings.h"
 #include "UI/StdCreditsWidget.h"
 #include "UI/StdSettingsWidget.h"
@@ -26,6 +28,12 @@ void UStdMainMenuWidget::NativeOnInitialized()
 	if (Button_Quit)
 	{
 		Button_Quit->OnClicked.AddUniqueDynamic(this, &ThisClass::HandleQuitClicked);
+	}
+
+	const FString& Version = GetDefault<UGeneralProjectSettings>()->ProjectVersion;
+	if (Text_Version && !Version.IsEmpty())
+	{
+		Text_Version->SetText(FText::FromString(TEXT("v") + Version));
 	}
 }
 

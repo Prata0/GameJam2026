@@ -19,5 +19,10 @@ public class StdCore : ModuleRules
 			"Slate",
 			"SlateCore"
 		});
+
+		PrivateDependencyModuleNames.AddRange(new string[]
+		{
+			"EngineSettings"
+		});
 	}
 }

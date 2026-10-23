@@ -13,6 +13,7 @@
 #include "Settings/StdSettingsSubsystem.h"
 #include "StdLog.h"
 #include "UI/StdKeyBindingRowWidget.h"
+#include "UI/StdUITheme.h"
 
 #define LOCTEXT_NAMESPACE "StdCore"
 
@@ -95,10 +96,7 @@ void UStdSettingsWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	if (Switcher_Tabs)
-	{
-		Switcher_Tabs->SetActiveWidgetIndex(StdSettingsTabs::AudioVideo);
-	}
+	SelectTab(StdSettingsTabs::AudioVideo);
 	SetKeyBindingMessage(FText::GetEmpty());
 	RefreshAudioVideo();
 	RebuildKeyBindings();
@@ -169,6 +167,7 @@ void UStdSettingsWidget::RefreshAudioVideo()
 	{
 		Slider_SfxVolume->SetValue(SettingsSubsystem->GetVolume(EStdVolumeChannel::Sfx));
 	}
+	RefreshVolumeTexts();
 	if (Text_WindowMode)
 	{
 		Text_WindowMode->SetText(GetWindowModeText(SettingsSubsystem->GetWindowMode()));
@@ -176,6 +175,46 @@ void UStdSettingsWidget::RefreshAudioVideo()
 	if (Text_Quality)
 	{
 		Text_Quality->SetText(GetQualityText(SettingsSubsystem->GetQualityLevel()));
+	}
+}
+
+void UStdSettingsWidget::RefreshVolumeTexts()
+{
+	const UStdSettingsSubsystem* SettingsSubsystem = GetSettingsSubsystem();
+	if (!SettingsSubsystem)
+	{
+		return;
+	}
+
+	FNumberFormattingOptions Options;
+	Options.MaximumFractionalDigits = 0;
+	const TPair<UTextBlock*, EStdVolumeChannel> Texts[] = {
+		{ Text_MasterVolumeValue, EStdVolumeChannel::Master },
+		{ Text_MusicVolumeValue, EStdVolumeChannel::Music },
+		{ Text_SfxVolumeValue, EStdVolumeChannel::Sfx }
+	};
+	for (const TPair<UTextBlock*, EStdVolumeChannel>& Entry : Texts)
+	{
+		if (Entry.Key)
+		{
+			Entry.Key->SetText(FText::AsPercent(SettingsSubsystem->GetVolume(Entry.Value), &Options));
+		}
+	}
+}
+
+void UStdSettingsWidget::SelectTab(int32 Index)
+{
+	if (Switcher_Tabs)
+	{
+		Switcher_Tabs->SetActiveWidgetIndex(Index);
+	}
+
+	if (bApplyTheme)
+	{
+		// The highlight keeps a copy of the style it replaced: give it back before restyling the tabs.
+		ResetFocusHighlight();
+		StdUITheme::SetTabSelected(Button_TabAudioVideo, Index == StdSettingsTabs::AudioVideo);
+		StdUITheme::SetTabSelected(Button_TabControls, Index == StdSettingsTabs::Controls);
 	}
 }
 
@@ -196,18 +235,12 @@ FText UStdSettingsWidget::GetQualityText(int32 Level) const
 
 void UStdSettingsWidget::HandleTabAudioVideoClicked()
 {
-	if (Switcher_Tabs)
-	{
-		Switcher_Tabs->SetActiveWidgetIndex(StdSettingsTabs::AudioVideo);
-	}
+	SelectTab(StdSettingsTabs::AudioVideo);
 }
 
 void UStdSettingsWidget::HandleTabControlsClicked()
 {
-	if (Switcher_Tabs)
-	{
-		Switcher_Tabs->SetActiveWidgetIndex(StdSettingsTabs::Controls);
-	}
+	SelectTab(StdSettingsTabs::Controls);
 }
 
 void UStdSettingsWidget::HandleMasterVolumeChanged(float Value)
@@ -215,6 +248,7 @@ void UStdSettingsWidget::HandleMasterVolumeChanged(float Value)
 	if (UStdSettingsSubsystem* SettingsSubsystem = GetSettingsSubsystem())
 	{
 		SettingsSubsystem->SetVolume(EStdVolumeChannel::Master, Value);
+		RefreshVolumeTexts();
 	}
 }
 
@@ -223,6 +257,7 @@ void UStdSettingsWidget::HandleMusicVolumeChanged(float Value)
 	if (UStdSettingsSubsystem* SettingsSubsystem = GetSettingsSubsystem())
 	{
 		SettingsSubsystem->SetVolume(EStdVolumeChannel::Music, Value);
+		RefreshVolumeTexts();
 	}
 }
 
@@ -231,6 +266,7 @@ void UStdSettingsWidget::HandleSfxVolumeChanged(float Value)
 	if (UStdSettingsSubsystem* SettingsSubsystem = GetSettingsSubsystem())
 	{
 		SettingsSubsystem->SetVolume(EStdVolumeChannel::Sfx, Value);
+		RefreshVolumeTexts();
 	}
 }
 
@@ -279,6 +315,12 @@ UWidget* UStdSettingsWidget::CreateCategoryHeader_Implementation(const FText& Ca
 	if (Header)
 	{
 		Header->SetText(Category);
+		const UStdUITheme* Theme = bApplyTheme ? StdUITheme::Get() : nullptr;
+		if (Theme)
+		{
+			Header->SetFont(Theme->HeadingFont);
+			Header->SetColorAndOpacity(FSlateColor(Theme->AccentColor));
+		}
 	}
 	return Header;
 }

@@ -15,6 +15,7 @@ class UStdKeyBindingRowWidget;
 class UStdMainMenuWidget;
 class UStdPauseMenuWidget;
 class UStdSettingsWidget;
+class UStdUITheme;
 class UWorld;
 
 /** Asset paths the plugin points to by default. They live in the plugin content (mount point /StdCore/). */
@@ -37,6 +38,7 @@ namespace StdCoreDefaults
 	inline const TCHAR* SettingsWidget = TEXT("/StdCore/UI/WBP_Settings.WBP_Settings_C");
 	inline const TCHAR* KeyBindingRowWidget = TEXT("/StdCore/UI/WBP_KeyBindingRow.WBP_KeyBindingRow_C");
 	inline const TCHAR* CreditsWidget = TEXT("/StdCore/UI/WBP_Credits.WBP_Credits_C");
+	inline const TCHAR* UITheme = TEXT("/StdCore/UI/DA_UITheme.DA_UITheme");
 }
 
 /** An Input Mapping Context added to every local player, with its priority. */
@@ -152,6 +154,10 @@ public:
 
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "UI")
 	TSoftClassPtr<UStdCreditsWidget> CreditsWidgetClass;
+
+	/** Colors, fonts and shapes of every menu. Empty: the Widget Blueprints keep the style set in their designer. */
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TSoftObjectPtr<UStdUITheme> Theme;
 };
 
 /**

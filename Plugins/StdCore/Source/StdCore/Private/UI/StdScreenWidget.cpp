@@ -1,5 +1,9 @@
 #include "UI/StdScreenWidget.h"
 
+#include "Blueprint/WidgetTree.h"
+#include "Components/Button.h"
+#include "Components/InputKeySelector.h"
+#include "Components/Slider.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/LocalPlayer.h"
 #include "Framework/Application/SlateUser.h"
@@ -7,6 +11,7 @@
 #include "Input/StdInputSubsystem.h"
 #include "InputCoreTypes.h"
 #include "StdLog.h"
+#include "UI/StdUITheme.h"
 #include "Widgets/SViewport.h"
 
 bool UStdScreenWidget::IsBackKey(const FKey& Key)
@@ -22,6 +27,19 @@ void UStdScreenWidget::NativeOnInitialized()
 	{
 		SetDesiredFocusWidget(FocusWidget);
 	}
+}
+
+void UStdScreenWidget::NativePreConstruct()
+{
+	// Before the Blueprint's Pre Construct, so a Blueprint can still override single widgets.
+	if (bApplyTheme)
+	{
+		if (const UStdUITheme* Theme = StdUITheme::Get())
+		{
+			StdUITheme::ApplyToWidget(*Theme, *this);
+		}
+	}
+	Super::NativePreConstruct();
 }
 
 void UStdScreenWidget::ShowAsRoot(int32 ZOrder)
@@ -138,9 +156,145 @@ bool UStdScreenWidget::IsKeyCaptureActive() const
 	return InputSubsystem && InputSubsystem->IsKeyCaptureActive();
 }
 
+namespace StdScreenFocus
+{
+	bool IsInteractive(const UWidget* Widget)
+	{
+		return Widget->IsA<UButton>() || Widget->IsA<USlider>() || Widget->IsA<UInputKeySelector>();
+	}
+
+	/** Buttons, sliders and key selectors of the tree, including those inside nested user widgets (key binding rows). */
+	void CollectInteractive(const UWidgetTree* Tree, TArray<UWidget*>& OutWidgets)
+	{
+		if (!Tree)
+		{
+			return;
+		}
+		Tree->ForEachWidget([&OutWidgets](UWidget* Widget)
+		{
+			if (IsInteractive(Widget))
+			{
+				OutWidgets.Add(Widget);
+			}
+			else if (const UUserWidget* Nested = Cast<UUserWidget>(Widget))
+			{
+				CollectInteractive(Nested->WidgetTree, OutWidgets);
+			}
+		});
+	}
+}
+
+void UStdScreenWidget::UpdateFocusHighlight()
+{
+	APlayerController* PlayerController = GetOwningPlayer();
+	if (!PlayerController || IsDesignTime())
+	{
+		return;
+	}
+
+	TArray<UWidget*> Widgets;
+	StdScreenFocus::CollectInteractive(WidgetTree, Widgets);
+
+	UWidget* Focused = nullptr;
+	for (UWidget* Widget : Widgets)
+	{
+		// Key selectors and sliders may hold the focus on an inner Slate widget.
+		if (Widget->HasUserFocus(PlayerController) || Widget->HasUserFocusedDescendants(PlayerController))
+		{
+			Focused = Widget;
+			break;
+		}
+	}
+
+	// The mouse entering a widget moves the focus there, so only one widget is ever highlighted.
+	TArray<TWeakObjectPtr<UWidget>> NowHovered;
+	for (UWidget* Widget : Widgets)
+	{
+		if (Widget->IsHovered() && Widget->GetIsEnabled())
+		{
+			NowHovered.Add(Widget);
+			if (!HoveredWidgets.Contains(Widget) && Widget != Focused && !IsKeyCaptureActive())
+			{
+				Widget->SetFocus();
+				Focused = Widget;
+			}
+		}
+	}
+	HoveredWidgets = MoveTemp(NowHovered);
+
+	if (Focused != HighlightedWidget.Get())
+	{
+		SetHighlighted(Focused);
+	}
+}
+
+void UStdScreenWidget::SetHighlighted(UWidget* Widget)
+{
+	ResetFocusHighlight();
+	if (!Widget)
+	{
+		return;
+	}
+
+	// FButtonStyle has no focused state: the hovered look stands in for it.
+	if (UButton* Button = Cast<UButton>(Widget))
+	{
+		HighlightedButtonStyle = Button->GetStyle();
+		FButtonStyle Style = HighlightedButtonStyle;
+		Style.SetNormal(Style.Hovered);
+		Style.SetNormalForeground(Style.HoveredForeground);
+		Button->SetStyle(Style);
+	}
+	else if (UInputKeySelector* KeySelector = Cast<UInputKeySelector>(Widget))
+	{
+		HighlightedButtonStyle = KeySelector->GetButtonStyle();
+		FButtonStyle Style = HighlightedButtonStyle;
+		Style.SetNormal(Style.Hovered);
+		Style.SetNormalForeground(Style.HoveredForeground);
+		StdUITheme::SetKeySelectorStyle(KeySelector, Style);
+	}
+	else if (USlider* Slider = Cast<USlider>(Widget))
+	{
+		HighlightedSliderStyle = Slider->GetWidgetStyle();
+		FSliderStyle Style = HighlightedSliderStyle;
+		Style.SetNormalBarImage(Style.HoveredBarImage);
+		Style.SetNormalThumbImage(Style.HoveredThumbImage);
+		Slider->SetWidgetStyle(Style);
+	}
+	HighlightedWidget = Widget;
+}
+
+void UStdScreenWidget::ResetFocusHighlight()
+{
+	UWidget* Widget = HighlightedWidget.Get();
+	HighlightedWidget.Reset();
+	if (!Widget)
+	{
+		return;
+	}
+
+	if (UButton* Button = Cast<UButton>(Widget))
+	{
+		Button->SetStyle(HighlightedButtonStyle);
+	}
+	else if (UInputKeySelector* KeySelector = Cast<UInputKeySelector>(Widget))
+	{
+		StdUITheme::SetKeySelectorStyle(KeySelector, HighlightedButtonStyle);
+	}
+	else if (USlider* Slider = Cast<USlider>(Widget))
+	{
+		Slider->SetWidgetStyle(HighlightedSliderStyle);
+	}
+}
+
 void UStdScreenWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	if (bHighlightFocus && !bClosing)
+	{
+		UpdateFocusHighlight();
+	}
 
 	if (!bRestoreFocusWhenLost || ChildScreen || bClosing || !IsVisible())
 	{

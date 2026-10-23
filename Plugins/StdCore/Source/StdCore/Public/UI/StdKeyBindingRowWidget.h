@@ -31,7 +31,12 @@ public:
 
 protected:
 	virtual void NativeOnInitialized() override;
+	virtual void NativePreConstruct() override;
 	virtual void NativeDestruct() override;
+
+	/** Style this row with the theme of Project Settings > Std Core > Theme (also in the designer). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Std Core|UI")
+	bool bApplyTheme = true;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Std Core|UI", meta = (BindWidget))
 	TObjectPtr<UTextBlock> Text_ActionName;

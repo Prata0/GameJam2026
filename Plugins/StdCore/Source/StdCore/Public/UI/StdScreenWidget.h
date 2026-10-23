@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Styling/SlateTypes.h"
 #include "StdScreenWidget.generated.h"
 
 class UStdScreenWidget;
@@ -56,6 +57,9 @@ public:
 	/** Escape and the gamepad's right face button. */
 	static bool IsBackKey(const FKey& Key);
 
+	/** Gives the highlighted widget its own style back. Call it before changing a button style at runtime. */
+	void ResetFocusHighlight();
+
 protected:
 	/** The widget focused when the screen opens. Subclasses return their first button. */
 	virtual UWidget* GetDefaultFocusWidget() const { return nullptr; }
@@ -70,6 +74,7 @@ protected:
 	void ReceiveScreenClosing();
 
 	virtual void NativeOnInitialized() override;
+	virtual void NativePreConstruct() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
@@ -77,9 +82,31 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Std Core|UI")
 	bool bRestoreFocusWhenLost = true;
 
+	/** Style this screen with the theme of Project Settings > Std Core > Theme (also in the designer). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Std Core|UI")
+	bool bApplyTheme = true;
+
+	/**
+	 * The focused button, slider or key selector shows its hovered look, and the mouse moves the focus to what it
+	 * hovers: one highlighted widget at a time, for mouse, keyboard and gamepad alike.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Std Core|UI")
+	bool bHighlightFocus = true;
+
 	bool IsKeyCaptureActive() const;
 
 private:
+	void UpdateFocusHighlight();
+	void SetHighlighted(UWidget* Widget);
+
+	/** The widget shown with its hovered look, and its style before that. */
+	TWeakObjectPtr<UWidget> HighlightedWidget;
+	FButtonStyle HighlightedButtonStyle;
+	FSliderStyle HighlightedSliderStyle;
+
+	/** Interactive widgets under the mouse during the last tick. */
+	TArray<TWeakObjectPtr<UWidget>> HoveredWidgets;
+
 	TWeakObjectPtr<UStdScreenWidget> ParentScreen;
 
 	UPROPERTY(Transient)

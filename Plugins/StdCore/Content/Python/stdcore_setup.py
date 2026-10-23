@@ -1,4 +1,4 @@
-"""Creates or updates the Std Core plugin assets (audio, input, maps).
+"""Creates or updates the Std Core plugin assets (audio, input, maps, UI theme).
 
 Idempotent: every asset is created when missing, compared with the specification below and saved only when
 something differs. A second run reports 0 created and 0 updated. The Widget Blueprints are not handled here:
@@ -9,7 +9,7 @@ Run it from the editor (Output Log, Python mode):
 or headless, with the editor closed:
     UnrealEditor-Cmd.exe <project>.uproject -run=pythonscript -script="<path>/stdcore_setup.py"
 
-Optional arguments select stages: audio, input, maps (default: all of them).
+Optional arguments select stages: audio, input, maps, ui (default: all of them).
 Requires the Python Editor Script Plugin and Editor Scripting Utilities.
 """
 
@@ -534,6 +534,30 @@ def setup_maps():
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+# UI
+# ---------------------------------------------------------------------------------------------------------------------
+
+UI = ROOT + "/UI"
+
+
+def ensure_ui_theme():
+    """The theme's look lives in the C++ defaults of UStdUITheme: the asset only has to exist. Edits made to it in the
+    editor are kept, since they are the game's restyle."""
+    package_path = UI + "/DA_UITheme"
+
+    def step():
+        factory = unreal.DataAssetFactory()
+        factory.set_editor_property("data_asset_class", unreal.StdUITheme)
+        theme, created = load_or_create(package_path, unreal.StdUITheme, factory)
+        return theme, created, False
+    run_step(package_path, step)
+
+
+def setup_ui():
+    ensure_ui_theme()
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -541,6 +565,7 @@ STAGES = {
     "audio": setup_audio,
     "input": setup_input,
     "maps": setup_maps,
+    "ui": setup_ui,
 }
 
 

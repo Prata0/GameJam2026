@@ -5,6 +5,7 @@
 #include "Engine/LocalPlayer.h"
 #include "UI/StdScreenWidget.h"
 #include "UI/StdSettingsWidget.h"
+#include "UI/StdUITheme.h"
 
 void UStdKeyBindingRowWidget::NativeOnInitialized()
 {
@@ -18,6 +19,18 @@ void UStdKeyBindingRowWidget::NativeOnInitialized()
 		KeySelector->OnKeySelected.AddUniqueDynamic(this, &ThisClass::HandleKeySelected);
 		KeySelector->OnIsSelectingKeyChanged.AddUniqueDynamic(this, &ThisClass::HandleIsSelectingKeyChanged);
 	}
+}
+
+void UStdKeyBindingRowWidget::NativePreConstruct()
+{
+	if (bApplyTheme)
+	{
+		if (const UStdUITheme* Theme = StdUITheme::Get())
+		{
+			StdUITheme::ApplyToWidget(*Theme, *this);
+		}
+	}
+	Super::NativePreConstruct();
 }
 
 void UStdKeyBindingRowWidget::NativeDestruct()

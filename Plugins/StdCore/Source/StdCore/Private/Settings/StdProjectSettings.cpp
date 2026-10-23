@@ -13,6 +13,7 @@
 #include "UI/StdMainMenuWidget.h"
 #include "UI/StdPauseMenuWidget.h"
 #include "UI/StdSettingsWidget.h"
+#include "UI/StdUITheme.h"
 
 UStdProjectSettings::UStdProjectSettings()
 {
@@ -40,6 +41,7 @@ UStdProjectSettings::UStdProjectSettings()
 	SettingsWidgetClass = TSoftClassPtr<UStdSettingsWidget>(FSoftObjectPath(StdCoreDefaults::SettingsWidget));
 	KeyBindingRowWidgetClass = TSoftClassPtr<UStdKeyBindingRowWidget>(FSoftObjectPath(StdCoreDefaults::KeyBindingRowWidget));
 	CreditsWidgetClass = TSoftClassPtr<UStdCreditsWidget>(FSoftObjectPath(StdCoreDefaults::CreditsWidget));
+	Theme = TSoftObjectPtr<UStdUITheme>(FSoftObjectPath(StdCoreDefaults::UITheme));
 }
 
 UObject* StdSettings::LoadSettingAsset(const FSoftObjectPath& Path, const FString& SettingName, const TCHAR* ExpectedPath)
